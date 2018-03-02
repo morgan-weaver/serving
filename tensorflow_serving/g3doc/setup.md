@@ -218,9 +218,13 @@ will silently fail - the server will listen on the port indicated, but will only
 accept unencrypted connections.
 
 To enable SSL support, remove the `_unsecure` prefix from the `grpc_lib` bind in
-`workspace.bzl` and in the model server dependencies before building:
+`workspace.bzl`:
 
 ```shell
-sed -i '' 's/c\+\+_unsecure/c++/g' tensorflow_serving/workspace.bzl \
-    tensorflow_serving/model_servers/BUILD
+sed -i '' 's/c\+\+_unsecure/c++/g' tensorflow_serving/workspace.bzl
+```
+
+Then, build the server with the bazel define `GRPC_MODE=secure`:
+```shell
+bazel build -c opt --define GRPC_MODE=secure //tensorflow_serving/model_servers:tensorflow_model_server
 ```

@@ -346,6 +346,9 @@ int main(int argc, char** argv) {
   // Tensorflow session parallelism of zero means that both inter and intra op
   // thread pools will be auto configured.
   tensorflow::int64 tensorflow_session_parallelism = 0;
+  // The below three settings are only enabled as flags if the bazel define
+  // GRPC_MODE=secure is set (which sets the USE_GRPC_SECURE preprocessor
+  // symbol).
   string key_file = "";
   string cert_file = "";
   string ca_file = "";
@@ -390,6 +393,7 @@ int main(int argc, char** argv) {
                        "Tensorflow session. Auto-configured by default."
                        "Note that this option is ignored if "
                        "--platform_config_file is non-empty."),
+#ifdef USE_GRPC_SECURE
       tensorflow::Flag("key_file", &key_file,
                        "If non-empty, a file containing a private key in PEM "
                        "format to use when serving. If non-empty, --cert_file "
@@ -402,6 +406,7 @@ int main(int argc, char** argv) {
                        "If non-empty, the root CA file to use with the "
                        "provided cert and key. Ignored if --key_file and "
                        "--cert_file are unset."),
+#endif
       tensorflow::Flag("platform_config_file", &platform_config_file,
                        "If non-empty, read an ascii PlatformConfigMap protobuf "
                        "from the supplied file name, and use that platform "

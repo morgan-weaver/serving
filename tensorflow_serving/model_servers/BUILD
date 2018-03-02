@@ -20,6 +20,21 @@ filegroup(
     ),
 )
 
+# Setting for when SSL-enabled gRPC linkings should be used.
+config_setting(
+    name = "grpc_secure",
+    define_values = {
+        "GRPC_MODE": "secure",
+    },
+)
+
+# The grpc++ dependency the model server will use. Pluralized because of list value, even though
+# there is only a single entry.
+GRPC_DEPS = select({
+    ":grpc_secure": ["@grpc//:grpc++"],
+    "//conditions:default": ["@grpc//:grpc++_unsecure"],
+})
+
 cc_library(
     name = "model_platform_types",
     hdrs = ["model_platform_types.h"],
@@ -169,8 +184,7 @@ cc_library(
         ":grpc_status_util",
         ":server_core",
         "//tensorflow_serving/apis:model_service_proto",
-        "@grpc//:grpc++_unsecure",
-    ],
+    ] + GRPC_DEPS,
 )
 
 cc_library(
@@ -181,9 +195,8 @@ cc_library(
         "//visibility:public",
     ],
     deps = [
-        "@grpc//:grpc++_unsecure",
         "@org_tensorflow//tensorflow/core:lib",
-    ],
+    ] + GRPC_DEPS,
 )
 
 SUPPORTED_TENSORFLOW_OPS = [
@@ -222,8 +235,11 @@ cc_binary(
         "//tensorflow_serving/apis:prediction_service_proto",
         "//tensorflow_serving/config:model_server_config_proto",
         "//tensorflow_serving/core:availability_preserving_policy",
-        "@grpc//:grpc++_unsecure",
-    ] + TENSORFLOW_DEPS + SUPPORTED_TENSORFLOW_OPS,
+    ] + TENSORFLOW_DEPS + SUPPORTED_TENSORFLOW_OPS + GRPC_DEPS,
+    defines = select({
+        ":grpc_secure": ["USE_GRPC_SECURE"],
+        "//conditions:default": [],
+    }),
 )
 
 py_test(
