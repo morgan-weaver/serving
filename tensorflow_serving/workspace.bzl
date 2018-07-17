@@ -19,7 +19,15 @@ def tf_serving_workspace():
 
   tf_workspace(path_prefix = "", tf_repo_name = "org_tensorflow")
 
-  # ===== gRPC dependencies =====
+# ===== gRPC dependencies =====
+# gRPC requires a bind() for linking. This can be
+# re-bound to target `grcp++` if you wish to build TensorFlow Serving with SSL
+# support enabled.
+  native.bind(
+      name = "grpc_lib",
+      actual = "@grpc//:grpc++",
+  )
+
   native.bind(
       name = "libssl",
       actual = "@boringssl//:ssl",

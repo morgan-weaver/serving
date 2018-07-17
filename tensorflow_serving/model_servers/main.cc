@@ -42,6 +42,7 @@ limitations under the License.
 // To specify port (default 8500): --port=my_port
 // To enable batching (default disabled): --enable_batching
 // To override the default batching parameters: --batching_parameters_file
+# TODO: update with jk
 
 #include <unistd.h>
 #include <iostream>
@@ -122,14 +123,20 @@ using tensorflow::serving::PredictionService;
 
 namespace {
 
-tensorflow::Status ParseProtoTextFile(const string& file,
-                                      google::protobuf::Message* message) {
+tensorflow::Status LoadTextFile(const string& file, string* dest) {
   std::unique_ptr<tensorflow::ReadOnlyMemoryRegion> file_data;
   TF_RETURN_IF_ERROR(
       tensorflow::Env::Default()->NewReadOnlyMemoryRegionFromFile(file,
                                                                   &file_data));
-  string file_data_str(static_cast<const char*>(file_data->data()),
-                       file_data->length());
+  dest->assign(static_cast<const char*>(file_data->data()),
+                 file_data->length());
+    return tensorflow::Status::OK();
+  }
+
+  tensorflow::Status ParseProtoTextFile(const string& file,
+                                        google::protobuf::Message* message) {
+    string file_data_str;
+    TF_RETURN_IF_ERROR(LoadTextFile(file, &file_data_str));
   if (tensorflow::protobuf::TextFormat::ParseFromString(file_data_str,
                                                         message)) {
     return tensorflow::Status::OK();
@@ -295,13 +302,13 @@ struct HttpServerOptions {
 
 void RunServer(int port, std::unique_ptr<ServerCore> core, bool use_saved_model,
                const string& grpc_channel_arguments,
-               const HttpServerOptions& http_options) {
+               const HttpServerOptions& http_options,
+               std::shared_ptr<grpc::ServerCredentials> creds) {
   // "0.0.0.0" is the way to listen on localhost in gRPC.
   const string server_address = "0.0.0.0:" + std::to_string(port);
   tensorflow::serving::ModelServiceImpl model_service(core.get());
   PredictionServiceImpl prediction_service(core.get(), use_saved_model);
   ServerBuilder builder;
-  std::shared_ptr<grpc::ServerCredentials> creds = InsecureServerCredentials();
   builder.AddListeningPort(server_address, creds);
   builder.RegisterService(&model_service);
   builder.RegisterService(&prediction_service);
@@ -372,6 +379,12 @@ int main(int argc, char** argv) {
   // Tensorflow session parallelism of zero means that both inter and intra op
   // thread pools will be auto configured.
   tensorflow::int64 tensorflow_session_parallelism = 0;
+  // The below three settings are only enabled as flags if the bazel define
+  // GRPC_MODE=secure is set (which sets the USE_GRPC_SECURE preprocessor
+  // symbol).
+  string key_file = "";
+  string cert_file = "";
+  string ca_file = "";
   string platform_config_file = "";
   string model_config_file;
   string grpc_channel_arguments = "";
@@ -423,6 +436,21 @@ int main(int argc, char** argv) {
                        "Tensorflow session. Auto-configured by default."
                        "Note that this option is ignored if "
                        "--platform_config_file is non-empty."),
+
+#ifdef USE_GRPC_SECURE
+      tensorflow::Flag("key_file", &key_file,
+                       "If non-empty, a file containing a private key in PEM "
+                       "format to use when serving. If non-empty, --cert_file "
+                       "must be provided."),
+      tensorflow::Flag("cert_file", &cert_file,
+                       "If non-empty, a file containing a public certificate "
+                       "in PEM format to use when serving. If non-empty, "
+                       "--key_file must be provided."),
+      tensorflow::Flag("ca_file", &ca_file,
+                       "If non-empty, the root CA file to use with the "
+                       "provided cert and key. Ignored if --key_file and "
+                       "--cert_file are unset."),
+#endif
       tensorflow::Flag("platform_config_file", &platform_config_file,
                        "If non-empty, read an ascii PlatformConfigMap protobuf "
                        "from the supplied file name, and use that platform "
@@ -515,10 +543,37 @@ int main(int argc, char** argv) {
   options.file_system_poll_wait_seconds = file_system_poll_wait_seconds;
   options.flush_filesystem_caches = flush_filesystem_caches;
 
+  if ((!key_file.empty() || !cert_file.empty()) &&
+        key_file.empty() != cert_file.empty()) {
+      std::cout << "must specify both --key_file and --cert_file" << "\n";
+      return -1;
+    }
+
+    // Create credential options.
+    std::shared_ptr<grpc::ServerCredentials> creds;
+    if (key_file.empty()) {
+      creds = InsecureServerCredentials();
+    } else {
+      grpc::SslServerCredentialsOptions sslOptions(GRPC_SSL_REQUEST_AND_REQUIRE_CLIENT_CERTIFICATE_AND_VERIFY);
+      string keyPem, certPem;
+      TF_CHECK_OK(LoadTextFile(key_file, &keyPem));
+      TF_CHECK_OK(LoadTextFile(cert_file, &certPem));
+      grpc::SslServerCredentialsOptions::PemKeyCertPair keyPair = {
+        keyPem,
+        certPem
+      };
+      sslOptions.pem_key_cert_pairs.push_back(keyPair);
+      if (!ca_file.empty()) {
+        TF_CHECK_OK(LoadTextFile(ca_file, &sslOptions.pem_root_certs));
+      }
+      creds = grpc::SslServerCredentials(sslOptions);
+    }
+
+
   std::unique_ptr<ServerCore> core;
   TF_CHECK_OK(ServerCore::Create(std::move(options), &core));
   RunServer(port, std::move(core), use_saved_model, grpc_channel_arguments,
-            http_options);
+            http_options, creds);
 
   return 0;
 }
