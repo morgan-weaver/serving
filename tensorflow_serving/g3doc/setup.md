@@ -188,3 +188,15 @@ older processors, so it may not work with all flags. You can try some subset of
 them, or revert to just the basic '-c opt' which is guaranteed to work on all
 machines.
 
+### Build with secure gRPC (SSL support)
+
+TensorFlow Serving builds are normally linked to a version of gRPC with SSL support
+disabled. This means that any use of [the secure sever credentials](https://github.com/grpc/grpc/blob/master/include/grpcpp/security/server_credentials.h)
+will silently fail - the server will listen on the port indicated, but will only
+accept unencrypted connections.  In this version, `_unsecure` is removed from the `grpc_lib` bind
+in `workspace.bzl`.  Replace it to disable SSL.
+
+Build the server with the bazel flag `GRPC_MODE=secure` for default SSL support:
+```shell
+bazel build -c opt --define GRPC_MODE=secure //tensorflow_serving/model_servers:tensorflow_model_server
+```
