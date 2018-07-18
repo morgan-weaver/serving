@@ -381,7 +381,7 @@ pkg_deb(
     name = "tensorflow_model_server_deb",
     data = ":tensorflow_model_server_tar",
     description = "TensorFlow Serving ModelServer",
-    homepage = "https://github.com/tensorflow/serving",
+    homepage = "https://github.com/morgan-weaver/serving",
     maintainer = "TensorFlow Serving team",
     package = "tensorflow-model-server",
     version = "undefined",  # Set when releasing a new version of TensorFlow Serving (e.g. 1.0.0).
@@ -392,7 +392,7 @@ pkg_deb(
     name = "tensorflow_model_server_universal_deb",
     data = ":tensorflow_model_server_tar",
     description = "TensorFlow Serving ModelServer",
-    homepage = "https://github.com/tensorflow/serving",
+    homepage = "https://github.com/morgan-weaver/serving",
     maintainer = "TensorFlow Serving team",
     package = "tensorflow-model-server-universal",
     version = "undefined",  # Set when releasing a new version of TensorFlow Serving (e.g. 1.0.0).

@@ -16,7 +16,6 @@ FROM ubuntu:16.04
 ARG TF_SERVING_VERSION_GIT_BRANCH=master
 ARG TF_SERVING_VERSION_GIT_COMMIT=head
 
-LABEL maintainer=gvasudevan@google.com
 LABEL tensorflow_serving_github_branchtag=${TF_SERVING_VERSION_GIT_BRANCH}
 LABEL tensorflow_serving_github_commit=${TF_SERVING_VERSION_GIT_COMMIT}
 
@@ -48,7 +47,7 @@ RUN apt-get update && apt-get install -y \
 
 # Set up grpc
 
-RUN pip install mock grpcio
+RUN pip install mock grpcio && pip install awscli --upgrade --user
 
 # Set up Bazel.
 
@@ -74,12 +73,12 @@ RUN mkdir /bazel && \
 
 # Download TF Serving sources (optionally at specific commit).
 WORKDIR /tensorflow-serving
-RUN git clone --branch=${TF_SERVING_VERSION_GIT_BRANCH} https://github.com/tensorflow/serving .
-RUN git remote add upstream https://github.com/tensorflow/serving.git
-RUN if [ "${TF_SERVING_VERSION_GIT_COMMIT}" != "head" ]; then git checkout ${TF_SERVING_VERSION_GIT_COMMIT} ; fi
+RUN git clone --branch=master https://github.com/morgan-weaver/serving .
+# RUN git remote add upstream https://github.com/tensorflow/serving.git
+# RUN if [ "${TF_SERVING_VERSION_GIT_COMMIT}" != "head" ]; then git checkout ${TF_SERVING_VERSION_GIT_COMMIT} ; fi
 
 # Build, and install TensorFlow Serving
-ARG TF_SERVING_BUILD_OPTIONS="--copt=-mavx --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=0 --verbose_failures"
+ARG TF_SERVING_BUILD_OPTIONS="--define GRPC_MODE=secure --copt=-mavx --cxxopt=-D_GLIBCXX_USE_CXX11_ABI=0 --verbose_failures"
 RUN bazel build -c opt --color=yes --curses=yes ${TF_SERVING_BUILD_OPTIONS} \
     --output_filter=DONT_MATCH_ANYTHING \
     tensorflow_serving/model_servers:tensorflow_model_server && \
@@ -88,4 +87,26 @@ RUN bazel build -c opt --color=yes --curses=yes ${TF_SERVING_BUILD_OPTIONS} \
     rm -rf /root/.cache
 # Clean up Bazel cache when done.
 
-CMD ["/bin/bash"]
+#Expose ports
+# gRPC
+EXPOSE 8500
+
+# REST
+EXPOSE 8501
+
+# Set where models should be stored in the container
+ENV MODEL_BASE_PATH=/models
+
+RUN mkdir -p ${MODEL_BASE_PATH}
+
+# The only required piece is the model name in order to differentiate endpoints
+ENV MODEL_NAME=model
+ENV S3_REGION=us-west-2
+ENV DEFAULT_PROFILE=nordstrom-federated
+ENV PYPATH=/tensorflow_serving
+
+ENTRYPOINT ["tensorflow_model_server", "-c"]
+CMD []
+
+# CMD ["/bin/bash"]
+# 
