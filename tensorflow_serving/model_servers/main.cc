@@ -32,7 +32,7 @@ limitations under the License.
 //     tensorflow_serving/batching/batching_session.h
 //
 // To serve a single model, run with:
-//     $path_to_binary/tensorflow_model_server \
+//     $path_to_binary/tensorflow_model_server
 //     --model_base_path=[/tmp/my_model | gs://gcs_address]
 // IMPORTANT: Be sure the base path excludes the version directory. For
 // example for a model at /tmp/my_model/123, where 123 is the version, the base
@@ -42,8 +42,6 @@ limitations under the License.
 // To specify port (default 8500): --port=my_port
 // To enable batching (default disabled): --enable_batching
 // To override the default batching parameters: --batching_parameters_file
-# TODO: update with jk
-
 #include <unistd.h>
 #include <iostream>
 #include <memory>
@@ -144,7 +142,7 @@ tensorflow::Status LoadTextFile(const string& file, string* dest) {
     return tensorflow::errors::InvalidArgument("Invalid protobuf file: '", file,
                                                "'");
   }
-}
+} 
 
 tensorflow::Status LoadCustomModelConfig(
     const ::google::protobuf::Any& any,
