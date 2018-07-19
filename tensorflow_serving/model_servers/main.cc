@@ -142,7 +142,7 @@ tensorflow::Status LoadTextFile(const string& file, string* dest) {
     return tensorflow::errors::InvalidArgument("Invalid protobuf file: '", file,
                                                "'");
   }
-} 
+}
 
 tensorflow::Status LoadCustomModelConfig(
     const ::google::protobuf::Any& any,
