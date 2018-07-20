@@ -1,0 +1,48 @@
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: tensorflow-ssl
+  namespace: machine-learning-platform
+spec:
+  replicas: 1
+  template:
+    metadata:
+      annotations:
+        # TODO(jkinkead): Template with account ID (nonprod is 369983073971, prod is 739618835592).
+        # kube2iam.beta.nordstrom.net/role: arn:aws:iam::{account_id}:role/{account_id}/k8s/{account_id}-tensorflow-serving
+        kube2iam.beta.nordstrom.net/role: arn:aws:iam::369983073971:role/369983073971/k8s/369983073971-tensorflow-serving
+      labels:
+        app: tensorflow-serving
+        # TODO(jkinkead): Template below.
+        # model: {namespace}/{model-name}
+        model: test_model
+    spec:
+      containers:
+      - name: tfs-ssl
+        image: gitlab-registry.nordstrom.com/platform/frankenstein/tensorflow_serving:morgan
+        command:
+        - /bin/sh
+        - -c
+        args:
+        - tensorflow_model_server --port=8443 --model_name=inception --model_base_path=s3://nonprod-models-beta/demos/inception &> inception_log
+        ports:
+        - containerPort: 8443
+---
+# Service pointing at the model deployment.
+apiVersion: v1
+kind: Service
+metadata:
+  name: tfs_loadbal
+  namespace: machine-learning-platform
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
+spec:
+  type: LoadBalancer
+  selector:
+    app: tensorflow-serving
+    model: demos-inception
+# Port must be 443 or 8443
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8443
